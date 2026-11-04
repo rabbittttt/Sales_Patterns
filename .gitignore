@@ -1,0 +1,36 @@
+# Keep these rules with this folder when syncing it to the company repository.
+
+# Python caches and local dependencies.
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+node_modules
+
+# Local business data and generated reports.
+input_file/
+output_file/
+analysis_outputs/
+output/
+outputs/
+excel_preview/
+*.xlsx
+*.xlsm
+*.xls
+*.csv
+*.db
+*.db-journal
+*.log
+*.zip
+.test_runtime/
+.test_outputs/
+
+# Local settings and credentials.
+.idea/
+.vscode/
+.codex/
+.env
+.env.*
+*.pem
+*.key

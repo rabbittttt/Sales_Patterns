@@ -1,0 +1,6 @@
+{
+  "groupBy": "auto",
+  "minGroups": 3,
+  "maxGroups": 8,
+  "mainMetrics": "auto"
+}
