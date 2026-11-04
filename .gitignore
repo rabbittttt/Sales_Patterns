@@ -34,3 +34,6 @@ excel_preview/
 .env.*
 *.pem
 *.key
+
+# Local update helper.
+update_script.bat
