@@ -25,7 +25,7 @@
 
 在 IDE 中直接运行项目根目录下的 `analyze_sales_patterns.py`，程序参数留空。脚本只生成网页，完成后会按系统默认方式打开本次生成的 HTML：Windows 直接打开本地 HTML 路径，等同于双击文件，遵循 `.html` 的默认应用；其他系统使用默认浏览器。不指定 Chrome、Edge 或 IE，也不修改系统关联。若打开的浏览器与预期不同，请检查 Windows 的 `.html` 默认应用（可能与 HTTP/HTTPS 链接的默认浏览器不同）。若无法启动，控制台会提示手动打开路径，已生成的网页仍然有效。所有默认路径相对于本项目根目录确定，不依赖 IDE 工作目录。
 
-项目目录为 `D:\05 AI脚本\PythonProject\销量规律`，可单独复制或从公开仓库 `https://github.com/rabbittttt/Sales_Patterns` 获取。代码不再依赖 `订单分析` 项目或其 `generate_html` 目录；节假日日历和共享数据路径模块都随本项目放在 `core/` 下。
+项目位于工作区的 `销量规律/` 目录，可单独复制或从公开仓库 `https://github.com/rabbittttt/Sales_Patterns` 获取。代码不再依赖 `订单分析` 项目或其 `generate_html` 目录；节假日日历和共享数据路径模块都随本项目放在 `core/` 下。
 
 ## 运行与迁移
 
