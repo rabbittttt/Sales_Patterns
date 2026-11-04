@@ -8,7 +8,7 @@ const {pathToFileURL} = require('node:url');
 const project = path.resolve(__dirname, '..');
 const {chromium} = require(process.env.PLAYWRIGHT_MODULE || path.join(project, '.test_runtime/node_modules/playwright'));
 const report = path.resolve(process.argv[2] || path.join(project, 'output_file/鸿蒙智行销量规律分析.html'));
-const python = process.env.PYTHON_BINARY || 'python';
+const python = require('./shared_python.cjs')(process.env.PYTHON_BINARY);
 const program = String.raw`
 import importlib.util, json, sys
 from pathlib import Path

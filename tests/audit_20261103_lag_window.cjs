@@ -14,7 +14,7 @@ fixture=importlib.util.module_from_spec(spec);spec.loader.exec_module(fixture)
 panel=fixture.make_panel()
 print(json.dumps({'panel':panel,'lags':fixture.analysis.lock_lag_analysis(panel)},ensure_ascii=False,default=str))
 `;
-const produced = JSON.parse(execFileSync(process.env.PYTHON_BINARY || 'python',
+const produced = JSON.parse(execFileSync(require('./shared_python.cjs')(process.env.PYTHON_BINARY),
   ['-X','utf8','-B','-c',program,__dirname],{encoding:'utf8'}));
 const entries=[{model:'配对车型',category:'测试分类',metrics:['留存大定','交车锁单'],stages:['平销']}];
 const fixture={

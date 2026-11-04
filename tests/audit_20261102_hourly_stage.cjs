@@ -17,7 +17,7 @@ unknown=fixture.read_hours(['2025-01-06'],metadata={'首销结束':None})
 for row in unknown:row.update(model='阶段未维护车型',model_level='阶段未维护车型')
 print(json.dumps(rows+unknown,ensure_ascii=False))
 `;
-const hourly = JSON.parse(execFileSync(process.env.PYTHON_BINARY || 'python',
+const hourly = JSON.parse(execFileSync(require('./shared_python.cjs')(process.env.PYTHON_BINARY),
   ['-X','utf8','-B','-c',program,__dirname],{encoding:'utf8'}));
 const names = ['明确阶段车型','阶段未维护车型'];
 const entries = names.map(model=>({model,category:'测试分类',metrics:['交车锁单'],stages:['首销','平销'],brand:'测试品牌'}));
