@@ -91,7 +91,7 @@ def build_web_data(payload, panel):
         notes.append("逐日输入：" + "、".join(payload["source_sheets"]) + "；" + source_note + "；累计快照、参考曲线及未来日期不进入分析。")
     if payload.get("sample"):
         notes.insert(0, "当前为样例数据，仅验证功能，不能据此确定真实经营规律。")
-    return dict(meta=dict(title="鸿蒙智行 · 销量预测规律研究", generated_at=datetime.now().isoformat(timespec="seconds"),
+    return dict(meta=dict(title="鸿蒙智行销量规律", generated_at=datetime.now().isoformat(timespec="seconds"),
                          source_name=Path(payload.get("source", "鸿蒙智行销量数据汇总.xlsx")).name,
                          date_start=min(dates) if dates else None, date_end=max(dates) if dates else None,
                          analysis_start=min(analysis_dates) if analysis_dates else None,
