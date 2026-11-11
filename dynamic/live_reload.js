@@ -4,7 +4,7 @@ const marker = document.querySelector('meta[name="sales-patterns-live-version"]'
 if (!/^https?:$/.test(location.protocol) || !marker) return;
 
 const pageVersion = marker.content;
-const pollMs = 5000;
+const pollMs = 15000;
 const timeoutMs = 10000;
 const trialIds = ["trialBase", "trialDays", "trialFactor"];
 const storageKey = "sales-patterns-live-trial:v1:" + location.pathname + location.search;

@@ -100,7 +100,7 @@ async function until(predicate, message) {
   }
   async function poll(page) {
     const before = state.requests;
-    await page.clock.runFor(5000);
+    await page.clock.runFor(15000);
     await until(() => state.requests > before, "Poll did not request status");
     await pause();
   }
@@ -113,8 +113,11 @@ async function until(predicate, message) {
   try {
     let page = await open();
     const initialRequests = state.requests;
-    await poll(page);
-    assert.ok(state.requests > initialRequests);
+    await page.clock.runFor(14999);
+    await pause();
+    assert.equal(state.requests, initialRequests, "Visible page must wait the full 15 seconds");
+    await page.clock.runFor(1);
+    await until(() => state.requests > initialRequests, "Visible page must poll at 15 seconds");
     assert.equal(state.documents, 1, "Unchanged reports must not reload");
 
     for (const mode of ["http-error", "invalid-json", "disconnect"]) {

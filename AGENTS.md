@@ -1,7 +1,7 @@
 # 销量规律项目协作说明
 
-- 本项目独立运行。静态实现位于 `static/analyze_sales_patterns.py`，动态实现位于 `dynamic/serve_sales_patterns.py`。根目录同名脚本兼容原 CLI 和 IDE 入口。不跨项目导入订单分析或销量预测代码，不使用软链接或自动同步代码。
-- 两个入口均支持无参数运行。静态模式单次生成 `output_file/鸿蒙智行销量规律分析.html` 并使用系统默认应用打开。动态模式在本机提供网页服务，每 300 秒扫描原始输入，连续稳定 60 秒后更新，浏览器自动刷新。保留静态脚本和启动方式。不生成 Excel、JSON 或 Markdown 报告，不直接编辑生成的 HTML。
+- 本项目独立运行。静态实现位于 `static/analyze_sales_patterns.py`，动态实现位于 `dynamic/serve_sales_patterns.py`。不跨项目导入订单分析或销量预测代码，不使用软链接或自动同步代码。
+- 两个入口均支持无参数运行。静态模式单次生成 `output_file/鸿蒙智行销量规律分析.html` 并使用系统默认应用打开。动态模式在本机提供网页服务，每 300 秒扫描原始输入，连续稳定 60 秒后更新，浏览器在标签页可见时每 15 秒检查新版本并按需刷新，页面隐藏时暂停，恢复可见后立即检查。保留静态脚本和启动方式。不生成 Excel、JSON 或 Markdown 报告，不直接编辑生成的 HTML。
 - 业务输入只读使用同级 `共享数据/订单汇总/鸿蒙智行销量数据汇总.xlsx`。`SHARED_DATA_ROOT` 可覆盖共享根；相对值基于本项目根目录，缺失时明确报错，不回退旧副本。
 - 小订、留存大定、交车锁单按现有独立口径分析；小订只在小订期。缺失不补零，不以其他字段替代。
 - 目录按 `static/`（单次生成）、`dynamic/`（监测服务）、`core/`（共用分析和配置）、`templates/`（共用页面）组织，不新增无必要的架构层。
@@ -13,6 +13,6 @@
 ## 验证
 
 - Python：`python -m unittest discover -s tests -p "test*.py"`
-- 实际运行：`python analyze_sales_patterns.py`（只读共享输入，输出到本项目）。
+- 实际运行：`python static/analyze_sales_patterns.py`（只读共享输入，输出到本项目）。
 - 动态服务改动须验证扫描/稳定时序、失败后保留上次结果、原始输入只读及静态入口兼容。
 - 改动交互时运行适用的 `tests/*.cjs`；Node/Playwright 仅为开发依赖，不能成为生产运行依赖。
