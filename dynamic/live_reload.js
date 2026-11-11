@@ -81,7 +81,7 @@ async function check() {
   controller = request;
   const deadline = setTimeout(() => request.abort(), timeoutMs);
   try {
-    const response = await fetch("/api/status", {
+    const response = await fetch(new URL("api/status", location.href), {
       cache: "no-store",
       headers: {Accept: "application/json"},
       signal: request.signal

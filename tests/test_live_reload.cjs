@@ -10,6 +10,7 @@ const {chromium} = require(process.env.PLAYWRIGHT_MODULE || "playwright");
 
 const V1 = "a".repeat(64), V2 = "b".repeat(64), V3 = "c".repeat(64);
 const metric = "fixture-metric";
+const appPrefix = "/apps/sales-patterns/";
 const pause = () => new Promise(resolve => setTimeout(resolve, 30));
 async function until(predicate, message) {
   const deadline = Date.now() + 4000;
@@ -25,7 +26,7 @@ async function until(predicate, message) {
   let state;
   function reset() {
     state = {reportVersion: V1, status: {app: "sales-patterns", version: V1, state: "ready", source_id: "fixture-source", project_id: "fixture-project"},
-      requests: 0, documents: 0, active: 0, maxActive: 0, mode: "ok"};
+      requests: 0, documents: 0, portalDocuments: 0, statusPaths: [], active: 0, maxActive: 0, mode: "ok"};
   }
   reset();
   function html(withMeta = true) {
@@ -54,9 +55,10 @@ async function until(predicate, message) {
   }
 
   const server = http.createServer((req, res) => {
-    if (req.url === "/api/status") {
+    if (req.url === "/api/status" || req.url === appPrefix + "api/status") {
       const requestState = state;
       requestState.requests++;
+      requestState.statusPaths.push(req.url);
       requestState.active++;
       requestState.maxActive = Math.max(requestState.maxActive, requestState.active);
       res.on("close", () => { requestState.active--; });
@@ -73,7 +75,15 @@ async function until(predicate, message) {
       }
       return;
     }
-    if (req.url === "/" || req.url === "/static") {
+    if (req.url === "/portal") {
+      state.portalDocuments++;
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.setHeader("Cache-Control", "no-store");
+      res.end('<!doctype html><html><body><iframe id="embedded-app" src="' + appPrefix +
+        '" style="width:100%;height:600px;border:0"></iframe></body></html>');
+      return;
+    }
+    if (req.url === "/" || req.url === "/static" || req.url === appPrefix) {
       state.documents++;
       res.setHeader("Content-Type", "text/html; charset=utf-8");
       res.setHeader("Cache-Control", "no-store");
@@ -219,6 +229,26 @@ async function until(predicate, message) {
     await poll(page);
     await until(async () => await versionOf(page) === V3);
     assert.deepEqual(JSON.parse(await page.locator("#trialResult").textContent()), {base: "0", days: "", factor: "0", mode: "period"});
+    await close();
+
+    page = await open("/portal");
+    const embedded = page.frameLocator("#embedded-app");
+    await until(() => state.requests > 0, "Embedded report must check its version");
+    await until(async () => await versionOf(embedded) === V1);
+    await poll(page);
+    assert.ok(state.statusPaths.every(route => route === appPrefix + "api/status"),
+      "Embedded report must keep API requests inside its application prefix");
+    publish();
+    await poll(page);
+    await until(async () => await versionOf(embedded) === V2, "Only the embedded report must refresh");
+    assert.equal(new URL(page.url()).pathname, "/portal");
+    assert.equal(state.portalDocuments, 1, "The portal shell must stay mounted");
+    await page.locator("#embedded-app").evaluate(frame => frame.remove());
+    await until(() => state.active === 0);
+    const removedFrameRequests = state.requests;
+    await page.clock.runFor(60000);
+    await pause();
+    assert.equal(state.requests, removedFrameRequests, "Leaving the portal app must stop its polling");
     await close();
 
     page = await open("/static");
