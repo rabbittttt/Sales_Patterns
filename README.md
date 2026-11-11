@@ -27,9 +27,21 @@
 
 项目位于工作区的 `销量规律/` 目录，可单独复制或从公开仓库 `https://github.com/rabbittttt/Sales_Patterns` 获取。代码不再依赖 `订单分析` 项目或其 `generate_html` 目录；节假日日历和共享数据路径模块都随本项目放在 `core/` 下。
 
+## 动态网页
+
+双击 `启动动态销量规律.cmd`，或在 IDE 中无参数运行 `serve_sales_patterns.py`。服务默认地址为 `http://127.0.0.1:8767/`，启动后使用系统默认浏览器打开。运行期间保持服务进程开启，关闭控制台或按 Ctrl+C 结束服务。
+
+后台每 300 秒检查原始汇总表。发现变更后，每秒观察文件状态，连续稳定 60 秒再调用现有分析脚本生成结果。文件继续写入、被替换、暂时缺失或无法读取时重新计算稳定窗口。分析失败或分析期间输入再次变化时，页面继续提供上一次成功结果，并在控制台记录重试信息。
+
+网页在新结果发布后自动刷新，保留当前路由、筛选、证据搜索分页和快速试算输入。当前日期范围覆盖指标全部历史时，刷新后使用更新后的完整范围；自定义日期范围沿用原选择。
+
+`analyze_sales_patterns.py` 和 `启动销量规律.cmd` 继续提供原来的单次静态生成方式。动态服务复用同一分析逻辑，原始输入仍由 `core/data_paths.py` 定位。动态运行需同时携带 `serve_sales_patterns.py` 与 `templates/live_reload.js`。
+
+可选参数包括 `--input`、`--calendar`、`--port`、`--scan-seconds`、`--stable-seconds` 和 `--no-open`。默认扫描和稳定时长分别为 300 秒与 60 秒。重复启动同一项目、同一输入的服务会打开已有实例；端口被其他程序占用时可用 `--port` 指定其他端口。
+
 ## 运行与迁移
 
-运行环境：Python 3.10+、openpyxl。不依赖 Node.js、私有包、Microsoft Excel 或网络服务。
+运行环境：Python 3.10+、openpyxl。不依赖 Node.js、私有包、Microsoft Excel 或外部网络服务。
 
 所有项目默认共用 `Project/.venv`。新电脑先按共享环境要求安装 Python 3.11+，在 `Project` 根目录双击“初始化共享环境.cmd”重建共享环境并安装依赖；不要复制旧电脑的 `.venv`。`Project` 整体迁移后，其上级目录和盘符可以不同，只需保留项目与共享数据的相对布局。
 
@@ -40,6 +52,7 @@
 ```text
 销量规律/
   analyze_sales_patterns.py
+  serve_sales_patterns.py
   export_excel_openpyxl.py
   report_rules.py
   forecast_insights.py
@@ -53,6 +66,7 @@
     patterns.html
     patterns.css
     patterns.js
+    live_reload.js
   tests/
   report_config.json
   requirements.txt
@@ -61,7 +75,7 @@
 
 上面列出的分析模块、`core/`、配置和 `templates/` 中的三个文件均为运行必需文件，迁移到内网时一起复制并保留目录结构。`requirements.txt` 用于共享环境安装，随源码迁移。`tests/` 只用于开发验证，生产运行可以不带；Node.js、私有包和 `node_modules` 都不是生产依赖。
 
-一次无参数执行只生成本项目根目录下的 `output_file/鸿蒙智行销量规律分析.html`。默认输入由 `core/data_paths.py` 解析：若设置 `SHARED_DATA_ROOT`，使用其目录下的 `订单汇总/鸿蒙智行销量数据汇总.xlsx`；未设置时使用项目同级的 `共享数据/订单汇总/鸿蒙智行销量数据汇总.xlsx`。相对 `SHARED_DATA_ROOT` 按项目根目录解析。共享目录或文件缺失会直接报错，不回退到 `output_file` 或旧项目副本；显式 `--input` 可指定其他工作簿。HTML 为单个离线文件，双击可在浏览器中打开；无需启动网站服务。分析证据只在内存传递，不生成单独的 JSON、Markdown、Excel、预览或日志文件；HTML 内嵌小订、留存大定和锁单的必要数据。已有 Excel 文件不会被删除或覆盖。旧 `--out` 参数仅兼容接收并提示忽略；`--input`、`--calendar` 可选使用，日常运行不需要参数。
+静态入口一次无参数执行只生成本项目根目录下的 `output_file/鸿蒙智行销量规律分析.html`。默认输入由 `core/data_paths.py` 解析：若设置 `SHARED_DATA_ROOT`，使用其目录下的 `订单汇总/鸿蒙智行销量数据汇总.xlsx`；未设置时使用项目同级的 `共享数据/订单汇总/鸿蒙智行销量数据汇总.xlsx`。相对 `SHARED_DATA_ROOT` 按项目根目录解析。共享目录或文件缺失会直接报错，不回退到 `output_file` 或旧项目副本；显式 `--input` 可指定其他工作簿。HTML 为单个离线文件，双击可在浏览器中打开；无需启动网站服务。分析证据只在内存传递，不生成单独的 JSON、Markdown、Excel、预览或日志文件；HTML 内嵌小订、留存大定和锁单的必要数据。已有 Excel 文件不会被删除或覆盖。旧 `--out` 参数仅兼容接收并提示忽略；`--input`、`--calendar` 可选使用，日常运行不需要参数。
 
 ## 数据和指标
 

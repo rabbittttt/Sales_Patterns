@@ -905,6 +905,7 @@ def main():
     ap.add_argument('--calendar',type=Path)
     ap.add_argument('--sample-data',action='store_true',help='将输出标记为样例数据')
     ap.add_argument('--real-data',action='store_true',help=argparse.SUPPRESS)
+    ap.add_argument('--no-open',action='store_true',help='生成网页后不自动打开浏览器')
     a=ap.parse_args()
     src=a.input.resolve()
     # The interactive HTML is the sole generated deliverable.  Keep the
@@ -1001,5 +1002,6 @@ def main():
     log(f'分析完成，总耗时 {time.perf_counter()-started:.1f} 秒')
     print('网页：'+str(web_final),flush=True)
     print('源文件未修改；结果数量：'+str({k:len(v) for k,v in result.items()}),flush=True)
-    open_generated_webpage(web_final)
+    if not a.no_open:
+        open_generated_webpage(web_final)
 if __name__=='__main__': main()
