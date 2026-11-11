@@ -8,7 +8,7 @@ from openpyxl import Workbook
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SPEC = importlib.util.spec_from_file_location("source_patterns", ROOT / "source_patterns.py")
+SPEC = importlib.util.spec_from_file_location("source_patterns", ROOT / "core" / "source_patterns.py")
 source_patterns = importlib.util.module_from_spec(SPEC)
 assert SPEC.loader is not None
 SPEC.loader.exec_module(source_patterns)

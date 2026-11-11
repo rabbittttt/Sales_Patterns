@@ -168,7 +168,7 @@ DECODER = r"""
 
 
 def render_html(data, template_dir=None):
-    folder = Path(template_dir) if template_dir else Path(__file__).with_name("templates")
+    folder = Path(template_dir) if template_dir else Path(__file__).resolve().parents[1] / "templates"
     template = (folder / "patterns.html").read_text(encoding="utf-8-sig")
     css = (folder / "patterns.css").read_text(encoding="utf-8-sig")
     js = (folder / "patterns.js").read_text(encoding="utf-8-sig")

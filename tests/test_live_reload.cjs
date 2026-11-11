@@ -21,7 +21,7 @@ async function until(predicate, message) {
 }
 
 (async () => {
-  const liveScript = await fs.readFile(path.join(__dirname, "../templates/live_reload.js"), "utf8");
+  const liveScript = await fs.readFile(path.join(__dirname, "../dynamic/live_reload.js"), "utf8");
   let state;
   function reset() {
     state = {reportVersion: V1, status: {app: "sales-patterns", version: V1, state: "ready", source_id: "fixture-source", project_id: "fixture-project"},

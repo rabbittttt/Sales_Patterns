@@ -73,10 +73,10 @@ class StandaloneProjectTests(unittest.TestCase):
     def test_temporary_project_uses_only_its_local_modules(self):
         with tempfile.TemporaryDirectory() as folder:
             project = Path(folder) / "销量规律"
-            (project / "core").mkdir(parents=True)
-            for relative in (Path("analyze_sales_patterns.py"), Path("core/data_paths.py"), Path("core/china_calendar.py")):
-                shutil.copy2(PROJECT / relative, project / relative)
-            analyzer = load_module("temporary_sales_analyzer", project / "analyze_sales_patterns.py")
+            for relative in ("static", "dynamic", "core", "templates"):
+                shutil.copytree(PROJECT / relative, project / relative,
+                                ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+            analyzer = load_module("temporary_sales_analyzer", project / "static" / "analyze_sales_patterns.py")
             with patch.dict(os.environ, {"SHARED_DATA_ROOT": ""}):
                 self.assertEqual(analyzer.ROOT, project.resolve())
                 self.assertEqual(

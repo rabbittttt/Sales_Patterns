@@ -17,8 +17,8 @@ def load(name, filename):
     return module
 
 
-analysis = load('legacy_audit_analysis', 'analyze_sales_patterns.py')
-forecast = load('legacy_audit_forecast', 'forecast_insights.py')
+analysis = load('legacy_audit_analysis', 'static/analyze_sales_patterns.py')
+forecast = load('legacy_audit_forecast', 'core/forecast_insights.py')
 
 
 class LegacyEvidenceTests(unittest.TestCase):

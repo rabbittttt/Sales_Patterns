@@ -6,7 +6,7 @@ import importlib.util
 from pathlib import Path
 
 spec = importlib.util.spec_from_file_location(
-    "sales_rules_test", Path(__file__).resolve().parents[1] / "report_rules.py"
+    "sales_rules_test", Path(__file__).resolve().parents[1] / "core" / "report_rules.py"
 )
 rules = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(rules)

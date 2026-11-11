@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SPEC = importlib.util.spec_from_file_location("audit_lag_analysis", ROOT / "analyze_sales_patterns.py")
+SPEC = importlib.util.spec_from_file_location("audit_lag_analysis", ROOT / "static" / "analyze_sales_patterns.py")
 analysis = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(analysis)
 

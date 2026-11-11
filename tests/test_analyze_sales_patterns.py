@@ -8,7 +8,7 @@ from pathlib import Path
 from unittest.mock import patch
 from statistics import mean
 
-spec=importlib.util.spec_from_file_location('sales_patterns',Path(__file__).resolve().parents[1] / 'analyze_sales_patterns.py')
+spec=importlib.util.spec_from_file_location('sales_patterns',Path(__file__).resolve().parents[1] / 'static' / 'analyze_sales_patterns.py')
 m=importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
 
 def records(a,b,fn=lambda d:100):
@@ -242,14 +242,14 @@ class SalesPatternTests(unittest.TestCase):
     def test_main_preflight_names_missing_input_without_touching_output(self):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder)
-            script=root/'analyze_sales_patterns.py'
+            script=root/'static'/'analyze_sales_patterns.py'
             script.parent.mkdir(parents=True,exist_ok=True)
             required=[
                 root/'core'/'china_calendar.py',
                 root/'core'/'data_paths.py',
-                script.with_name('export_excel_openpyxl.py'),
-                script.with_name('report_config.json'),
-                script.with_name('report_rules.py'),
+                root/'core'/'export_excel_openpyxl.py',
+                root/'core'/'report_config.json',
+                root/'core'/'report_rules.py',
             ]
             for path in required:
                 path.parent.mkdir(parents=True,exist_ok=True)
@@ -267,14 +267,14 @@ class SalesPatternTests(unittest.TestCase):
     def test_main_refuses_input_that_is_the_output_target(self):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder)
-            script=root/'analyze_sales_patterns.py'
+            script=root/'static'/'analyze_sales_patterns.py'
             script.parent.mkdir(parents=True,exist_ok=True)
             for path in (
                 root/'core'/'china_calendar.py',
                 root/'core'/'data_paths.py',
-                script.with_name('export_excel_openpyxl.py'),
-                script.with_name('report_config.json'),
-                script.with_name('report_rules.py'),
+                root/'core'/'export_excel_openpyxl.py',
+                root/'core'/'report_config.json',
+                root/'core'/'report_rules.py',
             ):
                 path.parent.mkdir(parents=True,exist_ok=True)
                 path.touch()

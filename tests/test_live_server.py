@@ -17,7 +17,7 @@ from urllib.request import ProxyHandler, build_opener
 from unittest.mock import Mock, patch
 
 PROJECT = Path(__file__).resolve().parents[1]
-spec = importlib.util.spec_from_file_location("sales_live_test", PROJECT / "serve_sales_patterns.py")
+spec = importlib.util.spec_from_file_location("sales_live_test", PROJECT / "dynamic" / "serve_sales_patterns.py")
 live = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(live)
 
@@ -288,7 +288,7 @@ class MonitorTests(unittest.TestCase):
         with patch.object(live.subprocess, "Popen") as popen:
             monitor._start_process()
         args, kwargs = popen.call_args
-        self.assertEqual(args[0], [sys.executable, str(self.root / "analyze_sales_patterns.py"),
+        self.assertEqual(args[0], [sys.executable, str(self.root / "static" / "analyze_sales_patterns.py"),
                                   "--input", str(self.source), "--no-open", "--calendar",
                                   str(self.root / "calendar.json")])
         self.assertEqual(kwargs["cwd"], str(self.root))
@@ -359,7 +359,7 @@ class HTTPTests(unittest.TestCase):
                 self.assertNotIn(str(self.source).encode(), content)
 
     def test_routes_do_not_expose_directory_source_or_script(self):
-        for path in ("private-source.bin", "templates/live_reload.js", "output_file/",
+        for path in ("private-source.bin", "dynamic/live_reload.js", "output_file/",
                      "../private-source.bin", "%2e%2e/private-source.bin", "api/status/", "favicon.ico"):
             with self.subTest(path=path), self.assertRaises(HTTPError) as caught:
                 self.fetch(path)

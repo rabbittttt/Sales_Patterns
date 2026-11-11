@@ -6,7 +6,7 @@ import unittest
 from datetime import date, timedelta
 from pathlib import Path
 
-MODULE_PATH = Path(__file__).resolve().parents[1] / "forecast_insights.py"
+MODULE_PATH = Path(__file__).resolve().parents[1] / "core" / "forecast_insights.py"
 SPEC = importlib.util.spec_from_file_location("forecast_insights", MODULE_PATH)
 forecast = importlib.util.module_from_spec(SPEC)
 assert SPEC and SPEC.loader

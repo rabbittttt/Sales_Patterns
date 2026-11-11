@@ -37,7 +37,7 @@ if exist "%launcherEnvironment%\pyvenv.cfg" set "VIRTUAL_ENV=%launcherEnvironmen
 echo Python: "%patternsPython%"
 "%patternsPython%" -c "import importlib.util, sys; sys.exit(1 if sys.version_info < (3, 10) or importlib.util.find_spec('openpyxl') is None else 0)" >nul 2>nul
 if errorlevel 1 goto missing_dependencies
-"%patternsPython%" serve_sales_patterns.py %*
+"%patternsPython%" "dynamic\serve_sales_patterns.py" %*
 set "launcherExitCode=%errorlevel%"
 if not "%launcherExitCode%"=="0" pause
 exit /b %launcherExitCode%

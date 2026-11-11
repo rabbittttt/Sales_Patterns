@@ -23,19 +23,19 @@
 
 研究主题是可操作的导航，不是装饰标签：点击“研究日历、阶段进度、订单关系”会进入该域最近一次查看的专题；当前口径不适用时仍允许进入，并在内容区说明“小订期/不适用”原因。专题里的“核对本专题证据”会继承当前曲线、周/月粒度、口径、车型和日期范围；证据页的搜索、分页、指标日期记忆会在刷新和浏览器后退时恢复。手机端默认收起全局筛选，点击“展开筛选”后再调整车型、阶段或日期。
 
-双击项目根目录的 `启动销量规律.cmd`；在 IDE 中运行时，将解释器设为所在 `Project/.venv`，直接运行 `analyze_sales_patterns.py`，程序参数留空。脚本只生成网页，完成后会按系统默认方式打开本次生成的 HTML：Windows 直接打开本地 HTML 路径，等同于双击文件，遵循 `.html` 的默认应用；其他系统使用默认浏览器。不指定 Chrome、Edge 或 IE，也不修改系统关联。若打开的浏览器与预期不同，请检查 Windows 的 `.html` 默认应用（可能与 HTTP/HTTPS 链接的默认浏览器不同）。若无法启动，控制台会提示手动打开路径，已生成的网页仍然有效。所有默认路径相对于本项目根目录确定，不依赖 IDE 工作目录。
+双击项目根目录的 `启动静态销量规律.cmd`（旧 `启动销量规律.cmd` 作为兼容转发入口保留）；在 IDE 中运行时，将解释器设为所在 `Project/.venv`，直接运行 `static/analyze_sales_patterns.py`，程序参数留空。根目录 `analyze_sales_patterns.py` 保留为兼容转发入口。脚本只生成网页，完成后会按系统默认方式打开本次生成的 HTML：Windows 直接打开本地 HTML 路径，等同于双击文件，遵循 `.html` 的默认应用；其他系统使用默认浏览器。不指定 Chrome、Edge 或 IE，也不修改系统关联。若打开的浏览器与预期不同，请检查 Windows 的 `.html` 默认应用（可能与 HTTP/HTTPS 链接的默认浏览器不同）。若无法启动，控制台会提示手动打开路径，已生成的网页仍然有效。所有默认路径相对于本项目根目录确定，不依赖 IDE 工作目录。
 
 项目位于工作区的 `销量规律/` 目录，可单独复制或从公开仓库 `https://github.com/rabbittttt/Sales_Patterns` 获取。代码不再依赖 `订单分析` 项目或其 `generate_html` 目录；节假日日历和共享数据路径模块都随本项目放在 `core/` 下。
 
 ## 动态网页
 
-双击 `启动动态销量规律.cmd`，或在 IDE 中无参数运行 `serve_sales_patterns.py`。服务默认地址为 `http://127.0.0.1:8767/`，启动后使用系统默认浏览器打开。运行期间保持服务进程开启，关闭控制台或按 Ctrl+C 结束服务。
+双击 `启动动态销量规律.cmd`，或在 IDE 中无参数运行 `dynamic/serve_sales_patterns.py`。根目录 `serve_sales_patterns.py` 保留为兼容转发入口。服务默认地址为 `http://127.0.0.1:8767/`，启动后使用系统默认浏览器打开。运行期间保持服务进程开启，关闭控制台或按 Ctrl+C 结束服务。
 
 后台每 300 秒检查原始汇总表。发现变更后，每秒观察文件状态，连续稳定 60 秒再调用现有分析脚本生成结果。文件继续写入、被替换、暂时缺失或无法读取时重新计算稳定窗口。分析失败或分析期间输入再次变化时，页面继续提供上一次成功结果，并在控制台记录重试信息。
 
 网页在新结果发布后自动刷新，保留当前路由、筛选、证据搜索分页和快速试算输入。当前日期范围覆盖指标全部历史时，刷新后使用更新后的完整范围；自定义日期范围沿用原选择。
 
-`analyze_sales_patterns.py` 和 `启动销量规律.cmd` 继续提供原来的单次静态生成方式。动态服务复用同一分析逻辑，原始输入仍由 `core/data_paths.py` 定位。动态运行需同时携带 `serve_sales_patterns.py` 与 `templates/live_reload.js`。
+`static/` 放单次静态生成入口，`dynamic/` 放动态服务与自动刷新脚本，`core/` 放两者共用的分析、导出与配置模块。根目录 `analyze_sales_patterns.py` 和 `启动销量规律.cmd` 继续提供原来的单次静态生成方式。动态服务复用同一分析逻辑，原始输入仍由 `core/data_paths.py` 定位；迁移时保留完整目录结构。
 
 可选参数包括 `--input`、`--calendar`、`--port`、`--scan-seconds`、`--stable-seconds` 和 `--no-open`。默认扫描和稳定时长分别为 300 秒与 60 秒。重复启动同一项目、同一输入的服务会打开已有实例；端口被其他程序占用时可用 `--port` 指定其他端口。
 
@@ -45,35 +45,43 @@
 
 所有项目默认共用 `Project/.venv`。新电脑先按共享环境要求安装 Python 3.11+，在 `Project` 根目录双击“初始化共享环境.cmd”重建共享环境并安装依赖；不要复制旧电脑的 `.venv`。`Project` 整体迁移后，其上级目录和盘符可以不同，只需保留项目与共享数据的相对布局。
 
-`启动销量规律.cmd` 从脚本位置向上定位最近名为 `Project` 的目录，仅使用其 `.venv\Scripts\python.exe`，不会优先子项目环境或回退 PATH。环境缺失或依赖不全会明确提示。`SALES_PATTERNS_PYTHON` 可显式覆盖解释器；相对值以本项目目录为准。在本项目目录手工运行可使用 `..\.venv\Scripts\python.exe analyze_sales_patterns.py`，安装本项目依赖可使用 `..\.venv\Scripts\python.exe -m pip install -r requirements.txt`。
+`启动静态销量规律.cmd`、`启动动态销量规律.cmd`（以及兼容的 `启动销量规律.cmd`）从脚本位置向上定位最近名为 `Project` 的目录，仅使用其 `.venv\Scripts\python.exe`，不会优先子项目环境或回退 PATH。环境缺失或依赖不全会明确提示。`SALES_PATTERNS_PYTHON` 可显式覆盖解释器；相对值以本项目目录为准。在本项目目录手工运行可使用 `..\.venv\Scripts\python.exe static/analyze_sales_patterns.py`，安装本项目依赖可使用 `..\.venv\Scripts\python.exe -m pip install -r requirements.txt`。
 
 必需文件及目录结构：
 
 ```text
 销量规律/
-  analyze_sales_patterns.py
-  serve_sales_patterns.py
-  export_excel_openpyxl.py
-  report_rules.py
-  forecast_insights.py
-  launch_patterns.py
-  source_patterns.py
-  export_html.py
+  启动静态销量规律.cmd
+  启动动态销量规律.cmd
+  启动销量规律.cmd          # 兼容转发到静态启动脚本
+  analyze_sales_patterns.py  # 兼容转发到静态实现
+  serve_sales_patterns.py    # 兼容转发到动态实现
+  static/
+    analyze_sales_patterns.py
+  dynamic/
+    serve_sales_patterns.py
+    live_reload.js
   core/
+    export_excel_openpyxl.py
+    report_rules.py
+    forecast_insights.py
+    launch_patterns.py
+    source_patterns.py
+    export_html.py
+    report_config.json
     china_calendar.py
     data_paths.py
   templates/
     patterns.html
     patterns.css
     patterns.js
-    live_reload.js
   tests/
-  report_config.json
   requirements.txt
+  output_file/
 ../共享数据/订单汇总/鸿蒙智行销量数据汇总.xlsx
 ```
 
-上面列出的分析模块、`core/`、配置和 `templates/` 中的三个文件均为运行必需文件，迁移到内网时一起复制并保留目录结构。`requirements.txt` 用于共享环境安装，随源码迁移。`tests/` 只用于开发验证，生产运行可以不带；Node.js、私有包和 `node_modules` 都不是生产依赖。
+上面列出的 `static/`、`dynamic/`、`core/`（含配置）和 `templates/` 中的三个文件均为运行必需文件，迁移到内网时一起复制并保留目录结构。`requirements.txt` 用于共享环境安装，随源码迁移。`tests/` 只用于开发验证，生产运行可以不带；Node.js、私有包和 `node_modules` 都不是生产依赖。
 
 静态入口一次无参数执行只生成本项目根目录下的 `output_file/鸿蒙智行销量规律分析.html`。默认输入由 `core/data_paths.py` 解析：若设置 `SHARED_DATA_ROOT`，使用其目录下的 `订单汇总/鸿蒙智行销量数据汇总.xlsx`；未设置时使用项目同级的 `共享数据/订单汇总/鸿蒙智行销量数据汇总.xlsx`。相对 `SHARED_DATA_ROOT` 按项目根目录解析。共享目录或文件缺失会直接报错，不回退到 `output_file` 或旧项目副本；显式 `--input` 可指定其他工作簿。HTML 为单个离线文件，双击可在浏览器中打开；无需启动网站服务。分析证据只在内存传递，不生成单独的 JSON、Markdown、Excel、预览或日志文件；HTML 内嵌小订、留存大定和锁单的必要数据。已有 Excel 文件不会被删除或覆盖。旧 `--out` 参数仅兼容接收并提示忽略；`--input`、`--calendar` 可选使用，日常运行不需要参数。
 
@@ -109,7 +117,7 @@
 
 ## 配置
 
-report_config.json：
+`core/report_config.json`：
 - groupBy：auto（默认）、segment（产品档位）、brand（品牌）、energy（能源类型）。
 - minGroups/maxGroups：自动选择分类维度的偏好范围，不强行凑组数，不合并或丢弃原始类别。
 - mainMetrics：auto（默认）展示本次全部可用指标；可配置为指标名称列表，例如 ["小订数量", "留存大定", "交车锁单"]。未展示的指标会明确列出；配置了本次不存在的指标会报错。
@@ -134,7 +142,7 @@ report_config.json：
 
 控制台日志带时间戳并立即刷新，包含两种预测口径、输入与网页输出路径、日期范围、车型/观测数量、分阶段耗时、滚动回测和网页导出进度。超过10000行的表会分批报告进度，保存失败给出明确原因。
 
-测试脚本统一放在 `tests/`，只用于开发时检查计算口径、历史回测和导出功能。日常运行仍只执行 `analyze_sales_patterns.py`，不需要运行测试。浏览器测试生成 Python 夹具时也默认使用所在 `Project/.venv`；`PYTHON_BINARY` 可显式覆盖，带目录的相对值按本项目根目录解析，显式命令名保持兼容。
+测试脚本统一放在 `tests/`，只用于开发时检查计算口径、历史回测和导出功能。日常静态运行只执行 `static/analyze_sales_patterns.py`（根目录旧入口仍可用），动态运行执行 `dynamic/serve_sales_patterns.py`，不需要运行测试。浏览器测试生成 Python 夹具时也默认使用所在 `Project/.venv`；`PYTHON_BINARY` 可显式覆盖，带目录的相对值按本项目根目录解析，显式命令名保持兼容。
 
 网页回归不仅检查页面能打开，还覆盖三种口径的专题导航、上市首销阶段跳转、研究域记忆与后退、曲线/粒度证据继承、CSV筛选、搜索与分页刷新、各口径自有日期记忆、小订预测尾期提示和移动端筛选展开。测试夹具中的重复行只用于稳定复现分页，不代表业务数据。
 
@@ -189,7 +197,7 @@ node tests/test_ui_workflow.cjs
 
 剩余验证边界：尚未在真实手机和读屏器上人工测试；2021年至今的内网全量数据不在本机，多年大数据规模下的性能需用真实数据复测。当前样例缺少有效评分回测、完整年度与节日窗口时，页面保留不足提示，不产生没有依据的规律；有效回测图表与16%/8%的WAPE展示使用隔离的UI测试夹具验证。现有已复现的阻塞流程问题已修复。
 
-最终版本由本项目根目录的无参数 `analyze_sales_patterns.py` 生成，直接打开 `output_file/鸿蒙智行销量规律分析.html` 即可测试；主脚本不再生成 Excel，不增加线上服务或外部依赖。
+最终版本由无参数 `static/analyze_sales_patterns.py`（或根目录兼容入口）生成，直接打开 `output_file/鸿蒙智行销量规律分析.html` 即可测试；主脚本不再生成 Excel，不增加线上服务或外部依赖。
 
 ## 上市后销量节奏
 

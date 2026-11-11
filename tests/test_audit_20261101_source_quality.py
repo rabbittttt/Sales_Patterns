@@ -9,7 +9,7 @@ from openpyxl import Workbook
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SPEC = importlib.util.spec_from_file_location("audit_source_quality", ROOT / "source_patterns.py")
+SPEC = importlib.util.spec_from_file_location("audit_source_quality", ROOT / "core" / "source_patterns.py")
 source_patterns = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(source_patterns)
 

@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 from openpyxl import Workbook, load_workbook
 
-spec = importlib.util.spec_from_file_location("sales_export_test", Path(__file__).resolve().parents[1] / "export_excel_openpyxl.py")
+spec = importlib.util.spec_from_file_location("sales_export_test", Path(__file__).resolve().parents[1] / "core" / "export_excel_openpyxl.py")
 e = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(e)
 
