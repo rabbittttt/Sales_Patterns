@@ -55,6 +55,88 @@ class HtmlExportTests(unittest.TestCase):
         self.assertIn('period_coverage',result['results'])
         self.assertNotIn('excel_name',result['meta'])
 
+    def test_combined_generation_rename_preserves_daily_curves_and_html_identity(self):
+        from openpyxl import Workbook
+
+        root = Path(__file__).resolve().parents[1]
+        analysis_spec = importlib.util.spec_from_file_location(
+            'generation_rename_analysis_test', root / 'static' / 'analyze_sales_patterns.py')
+        analysis = importlib.util.module_from_spec(analysis_spec)
+        analysis_spec.loader.exec_module(analysis)
+        source_patterns = e._load_sibling('source_patterns')
+        calendar = analysis.load_calendar()
+        old_name, new_name = '问界 F2N 2026款汇总', '问界 M9&M9U 2026款'
+        # Deliberately independent synthetic quantities and classifications.
+        models = [(old_name, 100, '组合档位', '混合'),
+                  ('问界 M9 2026款', 10, 'SUV', '纯电'), ('问界 M9U 2026款', 20, '轿车', '增程')]
+        book = Workbook()
+        book.remove(book.active)
+
+        def add_sheet(name, headers, records):
+            sheet = book.create_sheet(name)
+            for row in [headers, *records]:
+                sheet.append(row)
+
+        add_sheet('说明与来源', ['项目', '内容'], [['数据判定日期', '2025-12-31']])
+        add_sheet('车型基本信息', ['代际名', '二级代际名', '品牌', '产品档位', '能源类型',
+                  '小订开始', '小订结束', '首销开始', '首销结束', '销售阶段', '总小订'], [
+            [model, None, '测试品牌', segment, energy, date(2025, 8, 1), date(2025, 8, 2),
+             date(2025, 8, 3), date(2025, 8, 4), '已结束', base]
+            for model, base, segment, energy in models])
+        add_sheet(analysis.UNIFIED_DAILY_SHEET, ['代际名', '二级代际名', '日期', '订单阶段',
+                  '日期状态', '小订数量', '留存大定', '交车锁单', '字段来源'], [
+            [model, None, date(2025, 8, day), stage, '已结束日', small, net, lock,
+             '小订数量=测试小订.xlsx｜by天；留存大定=测试大定.xlsx｜by天；交车锁单=测试锁单.xlsx｜by天']
+            for model, base, _, _ in models
+            for day, stage, small, net, lock in [(1, '小订', base, None, None),
+                                                 (3, '首销', None, base + 1, base + 2)]])
+        add_sheet('累计小订转化率', ['代际名', '二级代际名', 'D1', 'D2'], [
+            [model, None, 0.1, 0.2] for model, _, _, _ in models])
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'rename.xlsx'
+            for combined_name in (old_name, new_name):
+                with self.subTest(model=combined_name):
+                    for sheet in book:
+                        for row in sheet:
+                            for cell in row:
+                                if cell.value == old_name:
+                                    cell.value = combined_name
+                    book.save(path)
+                    renamed = [(combined_name if model == old_name else model, base, segment, energy)
+                               for model, base, segment, energy in models]
+                    panel, audit = analysis.read_panel(path)
+                    self.assertEqual(len(panel), 9)
+                    self.assertEqual({(r['model'], r['metric']):
+                                      (r['value'], r['stage'], r['segment'], r['energy']) for r in panel},
+                                     {(model, metric): (value, stage, segment, energy)
+                                      for model, base, segment, energy in renamed
+                                      for metric, value, stage in [('小订数量', base, '小订阶段'),
+                                          ('留存大定', base + 1, '首销'), ('交车锁单', base + 2, '首销')]})
+                    self.assertEqual((audit['属性缺失车型数'], audit['属性冲突车型数']), (0, 0))
+                    insights = source_patterns.build_source_insights(path)
+                    self.assertEqual({(r['model'], r['day']):
+                                      (r['value'], r['date'], r['stage'], r['status'], r['denominator'],
+                                       r['category'], r['energy']) for r in insights['curves']},
+                                     {(model, day): (value, day_date, '首销', '有效（累计快照）',
+                                                      base, segment, energy)
+                                      for model, base, segment, energy in renamed
+                                      for day, value, day_date in [(1, 0.1, '2025-08-03'),
+                                                                   (2, 0.2, '2025-08-04')]})
+                    payload = e.build_web_data(dict(source=str(path), source_insights=insights,
+                        results=analysis.extended_analysis(panel, calendar)), panel)
+                    self.assertEqual({r['model']: r['category'] for r in payload['grouping']['entries']},
+                                     {model: '产品档位：' + segment for model, _, segment, _ in renamed})
+                    html = e.render_html(payload)
+                    embedded = re.search(r'type="application/json">(.*?)</script>', html, re.S)[1]
+                    recovered = json.loads(embedded)
+                    self.assertEqual(recovered['series'], json.loads(json.dumps(
+                        payload['series'], default=e._json_default)))
+                    self.assertEqual(recovered['source_insights']['curves'], insights['curves'])
+                    if combined_name == new_name:
+                        self.assertIn(r'\u0026', embedded)
+                        self.assertNotIn(old_name, embedded)
+        book.close()
+
     def test_data_script_cannot_be_closed_by_source_labels(self):
         payload=data()
         attack='</script><script>throw Error("bad")</script>&__PATTERNS_JS__'
