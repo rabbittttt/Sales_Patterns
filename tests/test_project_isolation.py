@@ -38,11 +38,11 @@ class StandaloneProjectTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             project = Path(folder) / "销量规律"
             self.assertEqual(
-                paths.shared_data_root(project), (Path(folder) / "共享数据").resolve()
+                paths.shared_data_root(project), (Path(folder) / "工作台数据" / "shared").resolve()
             )
             self.assertEqual(
                 paths.orders_input_directory(project),
-                (Path(folder) / "共享数据" / "订单汇总").resolve(),
+                (Path(folder) / "工作台数据" / "shared" / "订单汇总").resolve(),
             )
 
     def test_relative_configured_root_is_project_relative_not_cwd_relative(self):
@@ -81,7 +81,7 @@ class StandaloneProjectTests(unittest.TestCase):
                 self.assertEqual(analyzer.ROOT, project.resolve())
                 self.assertEqual(
                     analyzer.default_input_path(),
-                    (project.parent / "共享数据" / "订单汇总" / "鸿蒙智行销量数据汇总.xlsx").resolve(),
+                    (project.parent / "工作台数据" / "shared" / "订单汇总" / "鸿蒙智行销量数据汇总.xlsx").resolve(),
                 )
                 calendar = analyzer.load_calendar()
                 self.assertIn(2025, calendar["years"])

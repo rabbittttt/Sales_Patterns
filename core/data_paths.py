@@ -14,7 +14,8 @@ def shared_data_root(project_root: Path = PROJECT_ROOT) -> Path:
     if configured:
         candidate = Path(configured).expanduser()
         return (candidate if candidate.is_absolute() else project_root / candidate).resolve()
-    return project_root.parent / "共享数据"
+    base = (project_root / os.environ["PLANHUB_DATA_ROOT"]).resolve() if os.environ.get("PLANHUB_DATA_ROOT") else project_root.parent / "工作台数据"
+    return base / "shared"
 
 
 def orders_input_directory(project_root: Path = PROJECT_ROOT) -> Path:

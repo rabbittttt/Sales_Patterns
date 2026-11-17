@@ -77,12 +77,12 @@
   tests/
   requirements.txt
   output_file/
-../共享数据/订单汇总/鸿蒙智行销量数据汇总.xlsx
+../工作台数据/shared/订单汇总/鸿蒙智行销量数据汇总.xlsx
 ```
 
 上面列出的 `static/`、`dynamic/`、`core/`（含配置）和 `templates/` 中的三个文件均为运行必需文件，迁移到内网时一起复制并保留目录结构。`requirements.txt` 用于共享环境安装，随源码迁移。`tests/` 只用于开发验证，生产运行可以不带；Node.js、私有包和 `node_modules` 都不是生产依赖。
 
-静态入口一次无参数执行只生成本项目根目录下的 `output_file/鸿蒙智行销量规律分析.html`。默认输入由 `core/data_paths.py` 解析：若设置 `SHARED_DATA_ROOT`，使用其目录下的 `订单汇总/鸿蒙智行销量数据汇总.xlsx`；未设置时使用项目同级的 `共享数据/订单汇总/鸿蒙智行销量数据汇总.xlsx`。相对 `SHARED_DATA_ROOT` 按项目根目录解析。共享目录或文件缺失会直接报错，不回退到 `output_file` 或旧项目副本；显式 `--input` 可指定其他工作簿。HTML 为单个离线文件，双击可在浏览器中打开；无需启动网站服务。分析证据只在内存传递，不生成单独的 JSON、Markdown、Excel、预览或日志文件；HTML 内嵌小订、留存大定和锁单的必要数据。已有 Excel 文件不会被删除或覆盖。旧 `--out` 参数仅兼容接收并提示忽略；`--input`、`--calendar` 可选使用，日常运行不需要参数。
+静态入口一次无参数执行只生成本项目根目录下的 `output_file/鸿蒙智行销量规律分析.html`。默认输入由 `core/data_paths.py` 解析：若设置 `SHARED_DATA_ROOT`，使用其目录下的 `订单汇总/鸿蒙智行销量数据汇总.xlsx`；未设置时使用项目同级的 `工作台数据/shared/订单汇总/鸿蒙智行销量数据汇总.xlsx`。相对 `SHARED_DATA_ROOT` 按项目根目录解析。共享目录或文件缺失会直接报错，不回退到 `output_file` 或旧项目副本；显式 `--input` 可指定其他工作簿。HTML 为单个离线文件，双击可在浏览器中打开；无需启动网站服务。分析证据只在内存传递，不生成单独的 JSON、Markdown、Excel、预览或日志文件；HTML 内嵌小订、留存大定和锁单的必要数据。已有 Excel 文件不会被删除或覆盖。旧 `--out` 参数仅兼容接收并提示忽略；`--input`、`--calendar` 可选使用，日常运行不需要参数。
 
 ## 数据和指标
 
