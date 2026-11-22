@@ -29,6 +29,20 @@ class SalesPatternTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls): cls.cal=m.load_calendar()
 
+    def test_duplicate_business_headers_report_sheet_and_column_letters(self):
+        for sheet in (m.UNIFIED_DAILY_SHEET, "当前订单逐日", "车型基本信息"):
+            with self.subTest(sheet=sheet):
+                field = "品牌" if sheet == "车型基本信息" else "留存大定"
+                book = {sheet: Sheet([["备注", field, None, "备注", " " + field]])}
+                with self.assertRaisesRegex(ValueError, sheet + ".*" + field + ".*B 列和 E 列"):
+                    m._workbook_records(book, sheet)
+
+    def test_core_and_static_calendar_share_holiday_boundaries(self):
+        core = m.load_component(m.ROOT / "core" / "china_calendar.py", "calendar_regression")
+        for day in ("2021-02-12", "2023-12-30", "2024-06-08"):
+            self.assertEqual(core.classify_day(day)["name"], self.cal["holidays"][date.fromisoformat(day)])
+        self.assertTrue(core.classify_day("2021-02-07")["adjusted"])
+
     def test_full_history_2021_through_2026_and_holidays(self):
         p=records(date(2021,1,1),date(2026,9,15))
         r=m.analyze(p,self.cal)
@@ -247,7 +261,7 @@ class SalesPatternTests(unittest.TestCase):
             required=[
                 root/'core'/'china_calendar.py',
                 root/'core'/'data_paths.py',
-                root/'core'/'export_excel_openpyxl.py',
+                root/'core'/'report_profiles.py',
                 root/'core'/'report_config.json',
                 root/'core'/'report_rules.py',
             ]
@@ -272,7 +286,7 @@ class SalesPatternTests(unittest.TestCase):
             for path in (
                 root/'core'/'china_calendar.py',
                 root/'core'/'data_paths.py',
-                root/'core'/'export_excel_openpyxl.py',
+                root/'core'/'report_profiles.py',
                 root/'core'/'report_config.json',
                 root/'core'/'report_rules.py',
             ):

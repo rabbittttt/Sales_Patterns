@@ -14,6 +14,7 @@ import re
 import socket
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 from typing import NamedTuple
@@ -116,7 +117,7 @@ class Monitor:
     """A pollable state machine; only the monitor loop starts generators."""
 
     def __init__(self, source, *, root=ROOT, calendar=None, scan_seconds=300,
-                 stable_seconds=60, clock=time.monotonic, start_process=None,
+                 stable_seconds=60, build_timeout_seconds=1800, clock=time.monotonic, start_process=None,
                  logger=log):
         self.source = Path(source).resolve()
         self.root = Path(root).resolve()
@@ -124,6 +125,10 @@ class Monitor:
         self.calendar = Path(calendar).resolve() if calendar else None
         self.scan_seconds = scan_seconds
         self.stable_seconds = stable_seconds
+        self.build_timeout_seconds = build_timeout_seconds
+        self._build_directory = None
+        self._build_started = None
+        self._placeholder = "正在更新…"
         self.clock = clock
         self.logger = logger
         self.start_process = start_process or self._start_process
@@ -149,6 +154,7 @@ class Monitor:
         except FileNotFoundError:
             pass
         except (OSError, ValueError, UnicodeError, AttributeError, TypeError) as exc:
+            self._placeholder = "已有网页校验失败，正在重新生成。"
             self.logger(f"已有报告无法加载：{exc}")
         else:
             self._publish(content)
@@ -180,10 +186,11 @@ class Monitor:
     def page(self, live_script):
         with self.lock:
             content, version = self.content, self.version
+            placeholder = self._placeholder
         if content is None:
             content = ('<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">'
                        '<title>鸿蒙智行销量规律</title></head><body>'
-                       '<p role="status">正在更新…</p></body></html>').encode("utf-8")
+                       f'<p role="status">{placeholder}</p></body></html>').encode("utf-8")
         meta = f'<meta name="sales-patterns-live-version" content="{version or "pending"}">'.encode("utf-8")
         head = re.search(br"</head\s*>", content, re.IGNORECASE)
         position = head.start() if head else 0
@@ -195,9 +202,9 @@ class Monitor:
         position = body.start() if body else len(content)
         return content[:position] + script + content[position:]
 
-    def _start_process(self):
+    def _start_process(self, build_dir):
         command = [sys.executable, str(self.root / "static" / "analyze_sales_patterns.py"),
-                   "--input", str(self.source), "--no-open"]
+                   "--input", str(self.source), "--no-open", "--build-directory", str(build_dir)]
         if self.calendar:
             command.extend(["--calendar", str(self.calendar)])
         return subprocess.Popen(command, cwd=str(self.root))
@@ -242,6 +249,10 @@ class Monitor:
         result = self._process.poll()
         self._next_check = now + 1
         if result is None:
+            if now - self._build_started >= self.build_timeout_seconds:
+                self._terminate_build()
+                self._cleanup_build()
+                self._retry_build(f"报告生成超过 {self.build_timeout_seconds:g} 秒", now)
             return
         self._process = None
         try:
@@ -250,13 +261,17 @@ class Monitor:
                 raise ValueError("生成期间输入发生变化，本次结果不发布")
             if result:
                 raise ValueError(f"报告生成进程退出码 {result}")
-            content = validate_report(self.report_path.read_bytes(), current.digest)
+            candidate = Path(self._build_directory.name) / REPORT_NAME
+            content = validate_report(candidate.read_bytes(), current.digest)
             # Reading or validating a report may overlap another input replacement.
             if file_signature(self.source) != current:
                 raise ValueError("发布前输入发生变化，本次结果不发布")
+            os.replace(candidate, self.report_path)
         except (OSError, ValueError, UnicodeError, AttributeError, TypeError) as exc:
             self._retry_build(str(exc), now)
             return
+        finally:
+            self._cleanup_build()
         self._publish(content, state="idle")
         self._last_success = current
         self._pending = False
@@ -312,17 +327,27 @@ class Monitor:
         self._building_signature = signature
         self._build_changed = False
         try:
-            self._process = self.start_process()
+            self.report_path.parent.mkdir(parents=True, exist_ok=True)
+            self._build_directory = tempfile.TemporaryDirectory(prefix=".sales-build-", dir=self.report_path.parent)
+            self._build_started = now
+            self._process = self.start_process(Path(self._build_directory.name))
         except OSError as exc:
+            self._cleanup_build()
             self._retry_build(f"无法启动报告生成：{exc}", now)
             return
         self.state = "building"
         self.logger("输入已稳定，正在生成报告")
 
-    def stop(self):
-        with self.lock:
-            self._stopped = True
-            process, self._process = self._process, None
+    def _cleanup_build(self):
+        directory, self._build_directory = self._build_directory, None
+        if directory is not None:
+            try:
+                directory.cleanup()
+            except OSError as exc:
+                self.logger(f"临时构建目录清理失败：{exc}")
+
+    def _terminate_build(self):
+        process, self._process = self._process, None
         if process is not None and process.poll() is None:
             try:
                 process.terminate()
@@ -334,6 +359,11 @@ class Monitor:
             except subprocess.TimeoutExpired:
                 process.kill()
                 process.wait(timeout=5)
+
+    def stop(self):
+        self._stopped = True
+        self._terminate_build()
+        self._cleanup_build()
 
 
 class LocalServer(ThreadingHTTPServer):
@@ -409,18 +439,19 @@ def main(argv=None):
     parser.add_argument("--port", type=int, default=8767)
     parser.add_argument("--scan-seconds", type=float, default=300)
     parser.add_argument("--stable-seconds", type=float, default=60)
+    parser.add_argument("--build-timeout-seconds", type=float, default=1800)
     parser.add_argument("--no-open", action="store_true")
     parser.add_argument("--calendar", type=Path)
     args = parser.parse_args(argv)
     if not 1 <= args.port <= 65535:
         parser.error("--port 必须在 1 到 65535 之间")
     if any(not math.isfinite(value) or value <= 0
-           for value in (args.scan_seconds, args.stable_seconds)):
-        parser.error("扫描间隔和稳定时间必须大于 0")
+           for value in (args.scan_seconds, args.stable_seconds, args.build_timeout_seconds)):
+        parser.error("扫描间隔、稳定时间和构建超时必须是大于 0 的有限数值")
     source = args.input.resolve()
     url = f"http://127.0.0.1:{args.port}/"
     monitor = Monitor(source, calendar=args.calendar, scan_seconds=args.scan_seconds,
-                      stable_seconds=args.stable_seconds)
+                      stable_seconds=args.stable_seconds, build_timeout_seconds=args.build_timeout_seconds)
     script = (ROOT / "dynamic" / "live_reload.js").read_text(encoding="utf-8")
     try:
         server = make_server(monitor, script, args.port)

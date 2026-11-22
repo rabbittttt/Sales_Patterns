@@ -71,14 +71,17 @@ class MonitorTests(unittest.TestCase):
         self.processes = []
         self.logs = []
 
-    def start(self):
+    def start(self, build_dir):
+        self.candidate = build_dir / live.REPORT_NAME
         process = Process()
         self.processes.append(process)
         return process
 
     def monitor(self, **kwargs):
-        return live.Monitor(self.source, root=self.root, clock=self.clock,
-                            start_process=self.start, logger=self.logs.append, **kwargs)
+        monitor = live.Monitor(self.source, root=self.root, clock=self.clock,
+                               start_process=self.start, logger=self.logs.append, **kwargs)
+        self.addCleanup(monitor.stop)
+        return monitor
 
     def tick(self, monitor, when):
         self.clock.value = when
@@ -87,7 +90,7 @@ class MonitorTests(unittest.TestCase):
     def finish(self, monitor, when=61, label="first", digest=None):
         digest = digest or live.file_signature(self.source).digest
         content = report(digest, label)
-        self.output.write_bytes(content)
+        self.candidate.write_bytes(content)
         self.processes[-1].returncode = 0
         self.tick(monitor, when)
         return content
@@ -225,8 +228,27 @@ class MonitorTests(unittest.TestCase):
         self.finish(monitor, 423, "stale generated report", stable_digest)
         self.assertEqual((monitor.content, monitor.version), (old_content, old_version))
         self.assertEqual(monitor.state, "error")
+        self.assertEqual(self.output.read_bytes(), old_content)
+        self.assertEqual(self.monitor().content, old_content)
+        self.assertFalse(self.candidate.parent.exists())
         self.tick(monitor, 483)
         self.assertEqual(len(self.processes), 3)
+
+    def test_timeout_cleans_candidate_keeps_report_and_retries(self):
+        accepted = self.ready().content
+        monitor = self.monitor(build_timeout_seconds=10)
+        self.tick(monitor, 100)
+        self.tick(monitor, 160)
+        self.candidate.write_bytes(b"partial")
+        self.tick(monitor, 169)
+        self.assertFalse(self.processes[-1].terminated)
+        self.tick(monitor, 170)
+        self.assertTrue(self.processes[-1].terminated)
+        self.assertFalse(self.candidate.parent.exists())
+        self.assertEqual(self.monitor().content, accepted)
+        self.tick(monitor, 230)
+        recovered = self.finish(monitor, 231, "retry")
+        self.assertEqual(self.monitor().content, recovered)
 
     def test_wrong_digest_from_parallel_static_run_is_never_published(self):
         monitor = self.ready()
@@ -243,7 +265,7 @@ class MonitorTests(unittest.TestCase):
         monitor = self.monitor()
         self.assertIsNone(monitor.version)
         page = monitor.page("window.testLive = true;")
-        self.assertIn('正在更新'.encode(), page)
+        self.assertIn('已有网页校验失败'.encode(), page)
         self.assertIn(b'content="pending"', page)
         self.assertIn(b"window.testLive = true;", page)
         self.assertEqual(monitor.status()["version"], None)
@@ -286,10 +308,10 @@ class MonitorTests(unittest.TestCase):
     def test_generator_uses_current_interpreter_and_no_open(self):
         monitor = self.monitor(calendar=self.root / "calendar.json")
         with patch.object(live.subprocess, "Popen") as popen:
-            monitor._start_process()
+            monitor._start_process(self.root / "stage")
         args, kwargs = popen.call_args
         self.assertEqual(args[0], [sys.executable, str(self.root / "static" / "analyze_sales_patterns.py"),
-                                  "--input", str(self.source), "--no-open", "--calendar",
+                                  "--input", str(self.source), "--no-open", "--build-directory", str(self.root / "stage"), "--calendar",
                                   str(self.root / "calendar.json")])
         self.assertEqual(kwargs["cwd"], str(self.root))
 
@@ -420,7 +442,7 @@ class HTTPTests(unittest.TestCase):
 
 class MainTests(unittest.TestCase):
     def test_non_finite_or_non_positive_intervals_are_rejected(self):
-        for option in ("--scan-seconds", "--stable-seconds"):
+        for option in ("--scan-seconds", "--stable-seconds", "--build-timeout-seconds"):
             for value in ("nan", "inf", "-inf", "0", "-1"):
                 with self.subTest(option=option, value=value), \
                         patch.object(live, "default_input_path", return_value=Path("synthetic.bin")), \

@@ -43,10 +43,6 @@ def load_calendar(extra=None):
     spec=importlib.util.spec_from_file_location('calendar_rules',ROOT/'core'/'china_calendar.py')
     m=importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
     periods=dict(m.HOLIDAY_PERIODS); work=dict(m.ADJUSTED_WORKDAYS); sources=dict(m.SOURCE_URLS)
-    periods[2021]=(('元旦','2021-01-01','2021-01-03'),('春节','2021-02-11','2021-02-17'),('清明节','2021-04-03','2021-04-05'),('劳动节','2021-05-01','2021-05-05'),('端午节','2021-06-12','2021-06-14'),('中秋节','2021-09-19','2021-09-21'),('国庆节','2021-10-01','2021-10-07'))
-    work[2021]=('2021-02-07','2021-02-20','2021-04-25','2021-05-08','2021-09-18','2021-09-26','2021-10-09')
-    sources[2021]='https://app.www.gov.cn/govdata/gov/202011/26/465359/article.html'
-    periods[2024]=tuple((n,'2023-12-30' if n=='元旦' else '2024-06-08' if n=='端午节' else a,b) for n,a,b in periods[2024])
     if extra:
         for y,c in json.loads(Path(extra).read_text(encoding='utf-8-sig')).items():
             y=int(y); periods[y]=c['periods']; work[y]=c['workdays']; sources[y]=c['source']
@@ -65,9 +61,26 @@ RESOLVED_METRIC_COLUMNS = {
        for metric, aliases in ORDER_METRIC_COLUMNS.items()},
 }
 
+# Repeated notes and empty padding columns do not participate in order calculations.
+_BUSINESS_HEADERS = {
+    '日期', '日期状态', '订单阶段', '字段来源', '代际名', '二级代际名', '首销分时核对', '订单分析代际名', '历史传播名',
+    '来源类型', '来源文件', '来源Sheet', '真实逐日', '生命周期', '小订开始', '小订结束',
+    '首销开始', '首销结束', '品牌', '产品档位', '能源类型', '项目', '内容',
+    '小订', '小订数量', '小订来源', '小订退订', '退订数量', '首销期退订', '首销期退订数量',
+} | {name for pairs in ORDER_METRIC_COLUMNS.values() for pair in pairs for name in pair}
+
+
 def _workbook_records(wb, name):
     rows = iter(wb[name].iter_rows(values_only=True))
-    header = next(rows, ())
+    header = tuple(v.strip() if isinstance(v, str) else v for v in next(rows, ()))
+    positions = {}
+    for index, field in enumerate(header, 1):
+        if field not in _BUSINESS_HEADERS:
+            continue
+        column = openpyxl.utils.get_column_letter(index)
+        if field in positions:
+            raise ValueError(f'工作表“{name}”的关键字段“{field}”重复：{positions[field]} 列和 {column} 列')
+        positions[field] = column
     return header, ((n, dict(zip(header, values))) for n, values in enumerate(rows, 2)
                     if any(value is not None for value in values))
 
@@ -338,7 +351,7 @@ def read_resolved_panel(wb, audit):
 def read_unified_panel(wb, audit):
     """Resolve daily source candidates without adding snapshots or weekly totals."""
     header = next(wb[UNIFIED_DAILY_SHEET].iter_rows(values_only=True), ())
-    if '字段来源' in header:
+    if any(isinstance(h, str) and h.strip() == '字段来源' for h in header):
         return read_resolved_panel(wb, audit)
     cutoff = date.today()
     if '说明与来源' in wb.sheetnames:
@@ -512,7 +525,7 @@ def read_panel(path):
                 if note.get('项目') == '数据判定日期' and dt(note.get('内容')):
                     cutoff = min(cutoff, dt(note['内容']))
         for name,small in [('小订及退订逐日',True),('当前订单逐日',False)]:
-            it=wb[name].iter_rows(values_only=True); head=next(it)
+            head, rows = _workbook_records(wb, name)
             required={'日期','订单分析代际名'}|({'小订数量','真实逐日'} if small else {'订单阶段'})
             if required-set(head): raise ValueError(name+'缺少字段'+str(required-set(head)))
             metrics={'小订数量':('小订数量','小订来源')} if small else {}
@@ -527,9 +540,8 @@ def read_panel(path):
                     metrics[metric]=(value_col,source_col)
                     if len(present)>1:
                         audit[metric+'新旧字段同时存在，优先新字段']+=1
-            for rowno,vs in enumerate(it,2):
-                if all(v is None for v in vs): continue
-                r=dict(zip(head,vs)); audit[name+'原始行']+=1
+            for rowno, r in rows:
+                audit[name+'原始行']+=1
                 d=dt(r.get('日期')); model=r.get('订单分析代际名')
                 if not d or not model: audit['无效日期或车型']+=1; continue
                 if d > cutoff:
@@ -660,10 +672,9 @@ def attach_model_classes(wb, panel, audit):
     fields = ('品牌', '产品档位', '能源类型')
     mapping = defaultdict(lambda: defaultdict(set))
     if '车型基本信息' in getattr(wb, 'sheetnames', ()):
-        it = wb['车型基本信息'].iter_rows(values_only=True)
-        headers = next(it)
-        for values in it:
-            r = dict(zip(headers, values)); model = _model_name(r)
+        _, rows = _workbook_records(wb, '车型基本信息')
+        for _, r in rows:
+            model = _model_name(r)
             if not model:
                 continue
             for key, field in zip(definitions, fields):
@@ -905,6 +916,7 @@ def main():
     ap.add_argument('--calendar',type=Path)
     ap.add_argument('--sample-data',action='store_true',help='将输出标记为样例数据')
     ap.add_argument('--real-data',action='store_true',help=argparse.SUPPRESS)
+    ap.add_argument('--build-directory', type=Path, help=argparse.SUPPRESS)
     ap.add_argument('--no-open',action='store_true',help='生成网页后不自动打开浏览器')
     a=ap.parse_args()
     src=a.input.resolve()
@@ -912,7 +924,12 @@ def main():
     # historical workbook path out of this run so existing Excel files are
     # never overwritten or mistaken for a fresh result.
     web_final=(ROOT/'output_file'/'鸿蒙智行销量规律分析.html').resolve()
-    exporter=ROOT/'core'/'export_excel_openpyxl.py'
+    if a.build_directory is not None:
+        build_dir = a.build_directory.resolve()
+        if build_dir.parent != web_final.parent or not build_dir.name.startswith('.sales-build-') or not a.no_open:
+            ap.error('动态构建需要独立的临时目录和 --no-open')
+        web_final = build_dir / web_final.name
+    exporter=ROOT/'core'/'report_profiles.py'
     calendar_path=ROOT/'core'/'china_calendar.py'
     config_path=ROOT/'core'/'report_config.json'
     rules_path=ROOT/'core'/'report_rules.py'

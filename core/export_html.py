@@ -54,18 +54,18 @@ def _period_coverage(rows):
 
 def build_web_data(payload, panel):
     """Build the web payload with three primary measures kept separate."""
-    exporter = _load_sibling("export_excel_openpyxl")
+    profiles = _load_sibling("report_profiles")
     config = json.loads(Path(__file__).with_name("report_config.json").read_text(encoding="utf-8-sig"))
     results = payload["results"]
-    grouping = exporter._choose_grouping(results["model_classes"], config)
+    grouping = profiles._choose_grouping(results["model_classes"], config)
     focused = [r for r in panel if r["metric"] in FOCUS_METRICS]
     present = {r["metric"] for r in focused}
     dates = [r["date"] for r in focused]
     analysis_dates = [r["date"] for r in panel]
-    available_metrics, omitted_metrics = exporter._selected_metrics(results.get("period_comparisons", []), config)
+    available_metrics, omitted_metrics = profiles._selected_metrics(results.get("period_comparisons", []), config)
     model_map = {r["model"]: r for r in grouping["entries"]}
-    report_series = exporter._report_series(results.get("period_comparisons", []), grouping["categories"], model_map, available_metrics)
-    monthly_profiles = exporter.build_monthly_profiles(results, report_series, model_map)
+    report_series = profiles._report_series(results.get("period_comparisons", []), grouping["categories"], model_map, available_metrics)
+    monthly_profiles = profiles.build_monthly_profiles(results, report_series, model_map)
     metrics = [
         dict(key="小订数量", label="小订", source_label="小订数量（仅小订期）", available="小订数量" in present),
         dict(key="留存大定", label="留存大定", source_label="留存大定", available="留存大定" in present),
@@ -76,7 +76,7 @@ def build_web_data(payload, panel):
     filtered["period_coverage"] = _period_coverage(results.get("period_comparisons", []))
     rules = _load_sibling("report_rules").build_rule_summary(
         results, model_map, grouping["categories"], available_metrics)
-    findings = exporter._headline_findings(rules)
+    findings = profiles._headline_findings(rules)
     notes = [
         "目标是辅助销量预测：先查规律适用范围，再比较历史回测与简单基准。",
         "小订、留存大定、锁单是三个独立口径。小订只进入小订期；留存大定使用原表留存大定（兼容读取旧字段净大定）；锁单使用交车锁单。三种口径不相加，也不互相替代。",
