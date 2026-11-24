@@ -172,6 +172,10 @@ def render_html(data, template_dir=None):
     template = (folder / "patterns.html").read_text(encoding="utf-8-sig")
     css = (folder / "patterns.css").read_text(encoding="utf-8-sig")
     js = (folder / "patterns.js").read_text(encoding="utf-8-sig")
+    for name in ("research.js", "forecast.js", "evidence.js"):
+        marker = "// include: " + name
+        if marker in js:
+            js = js.replace(marker, (folder / name).read_text(encoding="utf-8-sig"))
     serialized = json.dumps(_packed(data), ensure_ascii=False, separators=(",", ":"), default=_json_default, allow_nan=False)
     # User-controlled labels must never close the application/json script element.
     serialized = serialized.replace("&", r"\u0026").replace("<", r"\u003c").replace(">", r"\u003e")

@@ -65,8 +65,8 @@ class MonitorTests(unittest.TestCase):
         self.root = Path(self.folder.name).resolve()
         self.source = self.root / "synthetic-input.bin"
         self.source.write_bytes(b"initial synthetic input")
-        self.output = self.root / "output_file" / live.REPORT_NAME
-        self.output.parent.mkdir()
+        self.output = self.root / "output_file" / ".live" / live.path_id(self.source) / live.REPORT_NAME
+        self.output.parent.mkdir(parents=True)
         self.clock = Clock()
         self.processes = []
         self.logs = []
@@ -215,6 +215,31 @@ class MonitorTests(unittest.TestCase):
         self.assertEqual(len(self.processes), 3)
         self.finish(monitor, 483, "recovered")
         self.assertNotEqual(monitor.version, old_version)
+
+    def test_restart_recovers_only_its_source_and_calendar_even_if_input_is_missing(self):
+        accepted = self.ready().content
+        public = self.root / "output_file" / live.REPORT_NAME
+        public.write_bytes(report("c" * 64, "different static input"))
+        self.source.unlink()
+        self.assertEqual(self.monitor().content, accepted)
+        self.assertIsNone(live.Monitor(self.root / "other.xlsx", root=self.root).content)
+        self.assertIsNone(self.monitor(calendar=self.root / "custom.json").content)
+        self.assertEqual(public.read_bytes(), report("c" * 64, "different static input"))
+
+    def test_calendar_edit_triggers_rebuild_and_a_second_edit_rejects_candidate(self):
+        calendar = self.root / "calendar.json"
+        calendar.write_bytes(b"first calendar")
+        monitor = self.monitor(calendar=calendar)
+        self.tick(monitor, 0)
+        self.tick(monitor, 60)
+        accepted = self.finish(monitor)
+        calendar.write_bytes(b"changed calendar")
+        self.tick(monitor, 361)
+        self.tick(monitor, 421)
+        calendar.write_bytes(b"changed again")
+        self.finish(monitor, 422, "stale calendar")
+        self.assertEqual(monitor.state, "error")
+        self.assertEqual(self.monitor(calendar=calendar).content, accepted)
 
     def test_input_change_during_build_discards_result(self):
         monitor = self.ready()
@@ -430,7 +455,7 @@ class HTTPTests(unittest.TestCase):
         with self.monitor.lock:
             self.monitor._publish(old)
         expected_version = self.monitor.version
-        self.monitor.report_path.parent.mkdir()
+        self.monitor.report_path.parent.mkdir(parents=True)
         self.monitor.report_path.write_bytes(report("b" * 64))
         with self.fetch("") as response:
             content = response.read()

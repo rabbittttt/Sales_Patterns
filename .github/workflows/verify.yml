@@ -1,0 +1,34 @@
+name: Windows delivery
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: windows-latest
+    env:
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r requirements.txt pillow
+      - run: python -m unittest discover -s tests
+      - run: python tools/check_delivery.py
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-save --package-lock=false playwright@1.56.1
+      - name: Browser regressions with synthetic data
+        shell: pwsh
+        run: |
+          $env:BROWSER_BINARY = "$env:ProgramFiles\Google\Chrome\Application\chrome.exe"
+          python tests/make_smoke_input.py sample.xlsx
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          python static/analyze_sales_patterns.py --input sample.xlsx --no-open
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          node tests/test_live_reload.cjs
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          node tests/test_research_workspace.cjs
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          node tests/test_visual_baselines.cjs

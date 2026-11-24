@@ -331,6 +331,25 @@ class UnifiedDailyTests(unittest.TestCase):
         row.update(changes)
         return row
 
+    def test_candidate_sheet_respects_date_status_and_legacy_rows(self):
+        for day, status, allowed in [
+            (date(2025,8,1), "未结束日", False),
+            (date(2025,8,1), "", False),
+            (date(2025,8,1), "已结束日", True),
+            (date(2025,12,31), "已结束日", False),
+            (date(2025,12,31), None, True),
+        ]:
+            with self.subTest(day=day, status=status):
+                row = self.row(日期=day, 留存大定=17)
+                if status is not None:
+                    row["日期状态"] = status
+                # read_panel rejects an entirely empty series; keep a closed control day.
+                control = self.row(日期=date(2025,7,31), 留存大定=1)
+                if status is not None:
+                    control["日期状态"] = "已结束日"
+                panel, _ = self.read([control, row])
+                self.assertEqual(any(r["date"] == day and r["value"] == 17 for r in panel), allowed)
+
     def test_unified_metrics_zero_snapshots_future_and_no_net_substitution(self):
         rows = [self.row(大定=100,留存大定=0,交车锁单=20),
                 self.row(日期=date(2025,8,2),大定=80,生命周期='D2'),

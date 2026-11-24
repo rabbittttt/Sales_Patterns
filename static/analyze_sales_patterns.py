@@ -218,6 +218,21 @@ def _resolved_field_source(sources, aliases):
     return next(iter(declared), '')
 
 
+def is_complete_observation(day, cutoff, row, audit):
+    if day > cutoff:
+        reason = '未来或超过数据判定日期排除'
+    elif '日期状态' not in row:
+        return True
+    elif str(row['日期状态'] or '').strip() != '已结束日':
+        reason = '未结束或未知日期状态排除'
+    elif day == cutoff:
+        reason = '数据判定当日未完整排除'
+    else:
+        return True
+    audit[reason] += 1
+    return False
+
+
 def read_resolved_panel(wb, audit):
     """The current workbook already resolves each metric; respect its provenance."""
     cutoff = date.today()
@@ -251,18 +266,8 @@ def read_resolved_panel(wb, audit):
         if not d or not model:
             audit['无效日期或车型'] += 1
             continue
-        if d > cutoff:
-            audit['未来或超过数据判定日期排除'] += 1
+        if not is_complete_observation(d, cutoff, row, audit):
             continue
-        if '日期状态' in head:
-            # New-schema rows explicitly describe completion. Unknown/blank status
-            # and the judgement day itself must not train complete-day patterns.
-            if str(row.get('日期状态') or '').strip() != '已结束日':
-                audit['未结束或未知日期状态排除'] += 1
-                continue
-            if d == cutoff:
-                audit['数据判定当日未完整排除'] += 1
-                continue
         sources = _field_sources(row.get('字段来源'))
         raw_stage = str(row.get('订单阶段') or '').strip()
         records = info.get(str(model), [])
@@ -386,8 +391,7 @@ def read_unified_panel(wb, audit):
         if not d or not model:
             audit['无效日期或车型'] += 1
             continue
-        if d > cutoff:
-            audit['未来或超过数据判定日期排除'] += 1
+        if not is_complete_observation(d, cutoff, row, audit):
             continue
         kind = str(row.get('来源类型') or '').strip()
         filename = str(row.get('来源文件') or '').strip()
@@ -544,16 +548,8 @@ def read_panel(path):
                 audit[name+'原始行']+=1
                 d=dt(r.get('日期')); model=r.get('订单分析代际名')
                 if not d or not model: audit['无效日期或车型']+=1; continue
-                if d > cutoff:
-                    audit['未来或超过数据判定日期排除'] += 1
+                if not is_complete_observation(d, cutoff, r, audit):
                     continue
-                if '日期状态' in head:
-                    if str(r.get('日期状态') or '').strip() != '已结束日':
-                        audit['未结束或未知日期状态排除'] += 1
-                        continue
-                    if d == cutoff:
-                        audit['数据判定当日未完整排除'] += 1
-                        continue
                 stage='小订阶段' if small else str(r.get('订单阶段') or '').strip()
                 if not small and stage not in ('首销', '平销'):
                     audit['阶段不明确排除'] += 1
@@ -955,6 +951,15 @@ def main():
         missing.append(f'额外节假日日历不存在：{a.calendar.resolve()}')
     if missing:
         raise FileNotFoundError('\n'.join(missing))
+    baseline = os.environ.get("SALES_PATTERNS_SCHEMA_BASELINE", "").strip()
+    if baseline:
+        schema_module = load_component(ROOT / "core" / "compare_schema.py", "sales_schema_diff")
+        baseline_path = ROOT / Path(baseline).expanduser()
+        changes = list(schema_module.changes(schema_module.schema(baseline_path), schema_module.schema(src)))
+        log(f"源表结构对照：{len(changes)} 项差异")
+        for change in changes:
+            log(change)
+
 
     log('正在读取并校验源数据...')
     stage=time.perf_counter()

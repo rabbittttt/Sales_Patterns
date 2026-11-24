@@ -46,6 +46,7 @@ def default_input_path():
 class FileSignature(NamedTuple):
     stat: tuple
     digest: str
+    calendar_digest: str = ""
 
 
 def stat_key(path):
@@ -121,7 +122,7 @@ class Monitor:
                  logger=log):
         self.source = Path(source).resolve()
         self.root = Path(root).resolve()
-        self.report_path = self.root / "output_file" / REPORT_NAME
+        self.output_dir = self.root / "output_file"
         self.calendar = Path(calendar).resolve() if calendar else None
         self.scan_seconds = scan_seconds
         self.stable_seconds = stable_seconds
@@ -137,6 +138,9 @@ class Monitor:
         self.content = None
         self.version = None
         self.source_id = path_id(self.source)
+        if self.calendar:
+            self.source_id = hashlib.sha256((self.source_id + ":" + path_id(self.calendar)).encode()).hexdigest()
+        self.report_path = self.output_dir / ".live" / self.source_id / REPORT_NAME
         self.project_id = path_id(self.root)
         self._observed_stat = None
         self._observed_digest = None
@@ -224,16 +228,27 @@ class Monitor:
     def _observe(self, signature, now, state="waiting"):
         self._pending = True
         self._observed_stat = signature.stat
-        self._observed_digest = signature.digest
+        self._observed_digest = (signature.digest, signature.calendar_digest)
         self._stable_since = now
         self._next_check = now + 1
         self._last_issue = None
         self.state = state
 
+    def _probe(self):
+        source = probe_file(self.source)
+        return (source, probe_file(self.calendar)) if self.calendar else source
+
+    def _signature(self):
+        source = file_signature(self.source)
+        if not self.calendar:
+            return source
+        calendar = file_signature(self.calendar)
+        return FileSignature((source.stat, calendar.stat), source.digest, calendar.digest)
+
     def _retry_build(self, message, now):
         self.logger(message + "；保留上次完整报告，将自动重试")
         try:
-            current = file_signature(self.source)
+            current = self._signature()
         except OSError as exc:
             self._issue(exc, now)
         else:
@@ -241,7 +256,7 @@ class Monitor:
 
     def _building_tick(self, now):
         try:
-            current_stat = probe_file(self.source)
+            current_stat = self._probe()
             if current_stat != self._building_signature.stat:
                 self._build_changed = True
         except OSError:
@@ -256,7 +271,7 @@ class Monitor:
             return
         self._process = None
         try:
-            current = file_signature(self.source)
+            current = self._signature()
             if self._build_changed or current != self._building_signature:
                 raise ValueError("生成期间输入发生变化，本次结果不发布")
             if result:
@@ -264,7 +279,7 @@ class Monitor:
             candidate = Path(self._build_directory.name) / REPORT_NAME
             content = validate_report(candidate.read_bytes(), current.digest)
             # Reading or validating a report may overlap another input replacement.
-            if file_signature(self.source) != current:
+            if self._signature() != current:
                 raise ValueError("发布前输入发生变化，本次结果不发布")
             os.replace(candidate, self.report_path)
         except (OSError, ValueError, UnicodeError, AttributeError, TypeError) as exc:
@@ -288,7 +303,7 @@ class Monitor:
             return
         if not self._pending:
             try:
-                signature = file_signature(self.source)
+                signature = self._signature()
             except OSError as exc:
                 self._issue(exc, now)
                 return
@@ -299,9 +314,9 @@ class Monitor:
                 self.logger("检测到输入变化，等待文件稳定")
             return
         try:
-            current_stat = probe_file(self.source)
+            current_stat = self._probe()
             if self._observed_stat is None:
-                self._observe(file_signature(self.source), now)
+                self._observe(self._signature(), now)
                 return
         except OSError as exc:
             self._issue(exc, now)
@@ -316,19 +331,19 @@ class Monitor:
         if now - self._stable_since < self.stable_seconds:
             return
         try:
-            signature = file_signature(self.source)
+            signature = self._signature()
         except OSError as exc:
             self._issue(exc, now)
             return
         if (signature.stat != current_stat or
-                (self._observed_digest is not None and signature.digest != self._observed_digest)):
+                (self._observed_digest is not None and (signature.digest, signature.calendar_digest) != self._observed_digest)):
             self._observe(signature, now)
             return
         self._building_signature = signature
         self._build_changed = False
         try:
             self.report_path.parent.mkdir(parents=True, exist_ok=True)
-            self._build_directory = tempfile.TemporaryDirectory(prefix=".sales-build-", dir=self.report_path.parent)
+            self._build_directory = tempfile.TemporaryDirectory(prefix=".sales-build-", dir=self.output_dir)
             self._build_started = now
             self._process = self.start_process(Path(self._build_directory.name))
         except OSError as exc:
