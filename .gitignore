@@ -37,3 +37,6 @@ excel_preview/
 
 # Local update helper.
 update_script.bat
+
+# Local audit reports and dated asset snapshots.
+/audit/
