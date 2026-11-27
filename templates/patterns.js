@@ -946,7 +946,7 @@ function updatePage(page,save=true){
     evidence:["数据证据","按当前范围核对原始观测、统计依据和完整性。"]
   }[page];
   $("pageTitle").textContent=info[0];$("pageDescription").textContent=info[1];
-  document.querySelectorAll("[data-panel]").forEach(b=>{const on=b.dataset.panel===page;b.classList.toggle("is-active",on);b.setAttribute("aria-selected",on?"true":"false");b.tabIndex=on?0:-1;});
+  document.querySelectorAll("[data-panel]").forEach(b=>{const on=b.dataset.panel===page;b.classList.toggle("is-active",on);b.setAttribute("aria-selected",on?"true":"false");if(on)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current");b.tabIndex=on?0:-1;});
   document.querySelectorAll(".page-panel").forEach(p=>p.hidden=p.id!=="panel-"+page);
   if(page==="overview")renderOverview();if(page==="patterns")renderPatterns();if(page==="forecast")renderForecast();if(page==="evidence")renderEvidence();
   showUpdate($("panel-"+page));
